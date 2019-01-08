@@ -14,7 +14,7 @@ use core::fmt::{self, Debug, Display};
 ///
 /// If the conversion from the underlying integer type is faillible, it should
 /// use the `CharConversionError` error type below. Otherwise, it may use `!`.
-pub trait Character<UnderlyingInt>:
+pub trait Character:
     Clone
     + Copy
     + Debug
@@ -22,15 +22,18 @@ pub trait Character<UnderlyingInt>:
     + Display
     + Eq
     + Into<char>
-    + Into<UnderlyingInt>
+    + Into<<Self as Character>::IntRepr>
     + PartialEq
     + PartialOrd
     + Ord
     + Send
     + Sync
     + TryFrom<char, Error = CharConversionError>
-    + TryFrom<UnderlyingInt>
+    + TryFrom<<Self as Character>::IntRepr>
 {
+    /// Integer representation of this character type
+    type IntRepr;
+
     /// The NUL character for this character type, used to terminate C strings
     const NUL: Self;
 
@@ -101,7 +104,8 @@ impl Display for Char8 {
     }
 }
 
-impl Character<u8> for Char8 {
+impl Character for Char8 {
+    type IntRepr = u8;
     const NUL: Self = Char8(0);
     const REPLACEMENT: Self = Char8(b'?');
 }
@@ -170,7 +174,8 @@ impl Display for Char16 {
     }
 }
 
-impl Character<u16> for Char16 {
+impl Character for Char16 {
+    type IntRepr = u16;
     const NUL: Self = Char16(0);
     const REPLACEMENT: Self = Char16(0xfffd); // �
 }
