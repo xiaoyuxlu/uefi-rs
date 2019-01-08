@@ -1,5 +1,5 @@
 use super::FileAttribute;
-use crate::data_types::chars::NUL_16;
+use crate::data_types::chars::Character;
 use crate::table::runtime::Time;
 use crate::{unsafe_guid, CStr16, Char16, Identify};
 use core::cmp;
@@ -110,7 +110,7 @@ impl<Header> NamedFileProtocolInfo<Header> {
                 .try_into()
                 .map_err(|_| FileInfoCreationError::InvalidChar(ch))?;
         }
-        info.name[name_length_ucs2 - 1] = NUL_16;
+        info.name[name_length_ucs2 - 1] = Char16::NUL;
         Ok(info)
     }
 }

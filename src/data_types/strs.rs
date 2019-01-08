@@ -1,4 +1,4 @@
-use super::chars::{Char16, Char8, NUL_16, NUL_8};
+use super::chars::{Char16, Char8, Character};
 use core::convert::TryInto;
 use core::result::Result;
 use core::slice;
@@ -26,7 +26,7 @@ impl CStr8 {
     /// Wraps a raw UEFI string with a safe C string wrapper
     pub unsafe fn from_ptr<'ptr>(ptr: *const Char8) -> &'ptr Self {
         let mut len = 0;
-        while *ptr.add(len) != NUL_8 {
+        while *ptr.add(len) != Char8::NUL {
             len += 1
         }
         let ptr = ptr as *const u8;
@@ -79,7 +79,7 @@ impl CStr16 {
     /// Wraps a raw UEFI string with a safe C string wrapper
     pub unsafe fn from_ptr<'ptr>(ptr: *const Char16) -> &'ptr Self {
         let mut len = 0;
-        while *ptr.add(len) != NUL_16 {
+        while *ptr.add(len) != Char16::NUL {
             len += 1
         }
         let ptr = ptr as *const u16;
@@ -93,7 +93,7 @@ impl CStr16 {
     pub fn from_u16_with_nul(codes: &[u16]) -> Result<&Self, FromSliceWithNulError> {
         for (pos, &code) in codes.iter().enumerate() {
             match code.try_into() {
-                Ok(NUL_16) => {
+                Ok(Char16::NUL) => {
                     if pos != codes.len() - 1 {
                         return Err(FromSliceWithNulError::InteriorNul(pos));
                     } else {
