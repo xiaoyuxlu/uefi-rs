@@ -127,7 +127,7 @@ impl<Header> FromUefi for NamedFileProtocolInfo<Header> {
         let byte_ptr = ptr as *mut u8;
         let name_ptr = byte_ptr.add(mem::size_of::<Header>()) as *mut Char16;
         let name = CStr16::from_ptr(name_ptr);
-        let name_len = name.to_u16_slice_with_nul().len();
+        let name_len = name.to_ints_slice_with_nul().len();
         let fat_ptr = slice::from_raw_parts_mut(ptr as *mut Char16, name_len);
         let self_ptr = fat_ptr as *mut [Char16] as *mut Self;
         &mut *self_ptr

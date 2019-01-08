@@ -32,7 +32,7 @@ pub trait Character:
     + TryFrom<<Self as Character>::IntRepr>
 {
     /// Integer representation of this character type
-    type IntRepr;
+    type IntRepr: Copy;
 
     /// The NUL character for this character type, used to terminate C strings
     const NUL: Self;

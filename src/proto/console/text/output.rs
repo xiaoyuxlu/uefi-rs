@@ -159,7 +159,7 @@ impl<'boot> fmt::Write for Output<'boot> {
             let codes = &buf[..=*i];
             *i = 0;
 
-            let text = CStr16::from_u16_with_nul(codes).map_err(|_| fmt::Error)?;
+            let text = CStr16::from_ints_with_nul(codes).map_err(|_| fmt::Error)?;
 
             self.output_string(text)
                 .warning_as_error()

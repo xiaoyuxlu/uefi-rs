@@ -70,7 +70,7 @@ impl<'imp> File<'imp> {
             let mut ptr = ptr::null_mut();
 
             let len = ucs2::encode(filename, &mut buf)?;
-            let filename = unsafe { CStr16::from_u16_with_nul_unchecked(&buf[..=len]) };
+            let filename = unsafe { CStr16::from_ints_with_nul_unchecked(&buf[..=len]) };
 
             unsafe { (self.0.open)(self.0, &mut ptr, filename.as_ptr(), open_mode, attributes) }
                 .into_with_val(|| unsafe { File::new(ptr) })
