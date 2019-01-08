@@ -4,7 +4,7 @@ use core::result::Result;
 use core::slice;
 
 /// Errors which can occur during checked [uN] -> CStrN conversions
-pub enum FromSliceWithNulError {
+pub enum FromIntsWithNulError {
     /// An invalid character was encountered before the end of the slice
     InvalidChar(usize),
 
@@ -34,15 +34,15 @@ impl CStr8 {
     }
 
     /// Creates a C string wrapper from bytes
-    pub fn from_bytes_with_nul(chars: &[u8]) -> Result<&Self, FromSliceWithNulError> {
+    pub fn from_bytes_with_nul(chars: &[u8]) -> Result<&Self, FromIntsWithNulError> {
         let nul_pos = chars.iter().position(|&c| c == 0);
         if let Some(nul_pos) = nul_pos {
             if nul_pos + 1 != chars.len() {
-                return Err(FromSliceWithNulError::InteriorNul(nul_pos));
+                return Err(FromIntsWithNulError::InteriorNul(nul_pos));
             }
             Ok(unsafe { Self::from_bytes_with_nul_unchecked(chars) })
         } else {
-            Err(FromSliceWithNulError::NotNulTerminated)
+            Err(FromIntsWithNulError::NotNulTerminated)
         }
     }
 
@@ -90,23 +90,23 @@ impl CStr16 {
     ///
     /// Since not every u16 value is a valid UCS-2 code point, this function
     /// must do a bit more validity checking than CStr::from_bytes_with_nul
-    pub fn from_u16_with_nul(codes: &[u16]) -> Result<&Self, FromSliceWithNulError> {
+    pub fn from_u16_with_nul(codes: &[u16]) -> Result<&Self, FromIntsWithNulError> {
         for (pos, &code) in codes.iter().enumerate() {
             match code.try_into() {
                 Ok(Char16::NUL) => {
                     if pos != codes.len() - 1 {
-                        return Err(FromSliceWithNulError::InteriorNul(pos));
+                        return Err(FromIntsWithNulError::InteriorNul(pos));
                     } else {
                         return Ok(unsafe { Self::from_u16_with_nul_unchecked(codes) });
                     }
                 }
                 Err(_) => {
-                    return Err(FromSliceWithNulError::InvalidChar(pos));
+                    return Err(FromIntsWithNulError::InvalidChar(pos));
                 }
                 _ => {}
             }
         }
-        Err(FromSliceWithNulError::NotNulTerminated)
+        Err(FromIntsWithNulError::NotNulTerminated)
     }
 
     /// Unsafely creates a C string wrapper from a u16 slice.
