@@ -11,6 +11,7 @@ bitflags = "1"
 log = { version = "0.4", default-features = false }
 ucs2 = "0.1"
 uefi-macros = { path = "uefi-macros" }
+unicode-segmentation = "1.2"
 
 [workspace]
 members = [

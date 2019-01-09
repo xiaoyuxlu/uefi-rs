@@ -37,6 +37,9 @@ pub trait Character:
     /// The NUL character for this character type, used to terminate C strings
     const NUL: Self;
 
+    /// The carriage return character for this character type, aka '\r'
+    const CARRIAGE_RETURN: Self;
+
     /// The suggested replacement character for this type
     ///
     /// This character should be used as a placeholder when a character
@@ -106,7 +109,8 @@ impl Display for Char8 {
 
 impl Character for Char8 {
     type IntRepr = u8;
-    const NUL: Self = Char8(0);
+    const NUL: Self = Char8(b'\0');
+    const CARRIAGE_RETURN: Self = Char8(b'\r');
     const REPLACEMENT: Self = Char8(b'?');
 }
 
@@ -176,6 +180,7 @@ impl Display for Char16 {
 
 impl Character for Char16 {
     type IntRepr = u16;
-    const NUL: Self = Char16(0);
+    const NUL: Self = Char16('\0' as u16);
+    const CARRIAGE_RETURN: Self = Char16('\r' as u16);
     const REPLACEMENT: Self = Char16(0xfffd); // �
 }
