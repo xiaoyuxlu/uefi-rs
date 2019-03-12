@@ -51,6 +51,7 @@ pub trait Character:
 }
 
 /// Error type used for faillible character conversions
+#[derive(Debug)]
 pub enum CharConversionError {
     /// Input is a valid Unicode code point, but too wide for this type
     TooWide,

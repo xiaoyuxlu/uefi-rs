@@ -7,7 +7,7 @@
 use super::chars::{Char16, Char8, Character};
 use core::result::Result;
 use core::slice;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{GraphemeCursor, UnicodeSegmentation};
 
 /// Generalization of `std::ffi::CStr` to UEFI use cases
 ///
@@ -20,6 +20,7 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct CStr<Char: Character>([Char]);
 
 /// Errors which can occur during checked [uN] -> CStrN conversions
+#[derive(Debug)]
 pub enum FromIntsWithNulError {
     /// An invalid character was encountered before the end of the slice
     InvalidChar(usize),
@@ -86,6 +87,13 @@ impl<Char: Character> CStr<Char> {
     pub fn to_ints_slice_with_nul(&self) -> &[Char::IntRepr] {
         unsafe { &*(&self.0 as *const [Char] as *const [Char::IntRepr]) }
     }
+
+    // Iterate over the code points of this string
+    // FIXME: Remove this API and re-express everything in terms of Char instead.
+    //        Consider renaming Char -> CharType along the way
+    fn char_indices(&self) -> impl DoubleEndedIterator + Iterator<Item=(usize, Char)> + '_ {
+        self.0[..self.0.len()-1].iter().cloned().map(|c| c.into()).enumerate()
+    }
 }
 
 /// A Latin-1 null-terminated string
@@ -95,12 +103,14 @@ pub type CStr8 = CStr<Char8>;
 pub type CStr16 = CStr<Char16>;
 
 /// Things that can go wrong during Rust -> UEFI string conversions
+#[derive(Debug)]
 pub enum StrEncodeError {
     /// Not enough output buffer space to encode any input grapheme
     ///
-    /// This can happen if the input string features many combining characters
-    /// (think about "Zalgo" Unicode abuse) or if the input buffer is very small
-    /// (Unicode's UAX #15 recommends at least 32 code points of storage).
+    /// This can happen if the input features many combining characters (think
+    /// about "Zalgo" Unicode abuse) or if the output buffer is very small.
+    ///
+    /// Unicode's UAX #15 recommends at least 32 code points of storage.
     BufferTooSmall,
 
     /// The input string contains a character which has no equivalent in the
@@ -169,20 +179,110 @@ pub fn encode<'buf, 'inp, Char: Character>(
         encoded_output_len = output_idx;
     }
 
-    // Treat failure to make any progress as an error
-    if (parsed_input_len == 0) && !input.is_empty() {
-        return Err(StrEncodeError::BufferTooSmall);
-    }
-
-    // Construct the output &CStr
-    buffer[encoded_output_len] = Char::NUL.into();
-    let output = unsafe { CStr::from_ints_with_nul_unchecked(buffer) };
-
-    // If there is some leftover input that we couldn't convert, return it
-    let input_remainder = if parsed_input_len < input.len() {
+    // Keep track of leftover input
+    let remaining_input = if parsed_input_len < input.len() {
         Some(&input[parsed_input_len..])
     } else {
         None
     };
-    Ok((output, input_remainder))
+
+    // Treat failure to make any progress as an error
+    if (parsed_input_len == 0) && remaining_input.is_some() {
+        return Err(StrEncodeError::BufferTooSmall);
+    }
+
+    // Construct the output
+    buffer[encoded_output_len] = Char::NUL.into();
+    let output = unsafe { CStr::from_ints_with_nul_unchecked(buffer) };
+    Ok((output, remaining_input))
+}
+
+/// Things that can go wrong during UEFI -> Rust string conversions
+#[derive(Debug)]
+enum StrDecodeError {
+    /// Not enough output buffer space to encode any input grapheme
+    ///
+    /// This can happen if the input features many combining characters (think
+    /// about "Zalgo" Unicode abuse) or if the output buffer is very small.
+    ///
+    /// Unicode's UAX #15 recommends at least 32 code points of storage, but due
+    /// to limitations of our current Unicode segmentation algorithm, you should
+    /// provide space for two grapheme clusters. In UTF-8, that's 256 bytes.
+    BufferTooSmall,
+}
+
+// Decode an UEFI string of the specified character type into a Rust string
+//
+// The output characters will be stored into a user-provided buffer. If that
+// buffer is not large enough, the output string will be truncated on the
+// previous grapheme cluster boundary.
+//
+// As an output, this function returns a Rust &str and the part of the input
+// UEFI string that was not converted (if any). Failure to convert any character
+// from a non-empty string is reported as an error in order to prevent
+// accidental endless loops on the caller side.
+//
+// FIXME: Clarify and finalize this documentation
+fn decode<'buf, 'inp, Char: Character>(
+    input: &'inp CStr<Char>,
+    buffer: &'buf mut [u8],
+) -> Result<(&'buf str, Option<&'inp CStr<Char>>), StrDecodeError> {
+    // Convert as many chars as possible to UTF-8 + Rust line feeds
+    let mut output_idx = 0;
+    let (mut after_carriage_return, mut truncated) = (false, false);
+    let mut input_iter = input.char_indices();
+    while let Some((_, ch)) = input_iter.next() {
+        // Convert the code point to a Rust char
+        let ch: char = ch.into();
+
+        // Try to add this code point to our UTF-8 buffer
+        if buffer.len() - output_idx >= ch.len_utf8() {
+            output_idx += ch.encode_utf8(&mut buffer[output_idx..]).len();
+        } else {
+            truncated = true;
+            break;
+        }
+
+        // Convert CR/LF sequences to Rust-style line feeds
+        if after_carriage_return && ch == '\n' {
+            buffer[output_idx-2] = b'\n';
+            output_idx -= 1;
+        }
+        after_carriage_return = ch == '\r';
+    }
+
+    // Build a Rust string from the UTF-8 sequence that we just encoded
+    let mut output = core::str::from_utf8(&buffer[..output_idx])
+        .expect("The decoded UTF-8 should be correct");
+
+    // If we have consumed all the input, we can stop there
+    if !truncated {
+        return Ok((output, None));
+    }
+
+    // If some input could not be converted, we must backtrack on the last
+    // grapheme cluster from the input, as it may have been truncated.
+    //
+    // We don't know the UTF-8 length of the remaining input, so we must lie
+    // about it, but it's okay as the GraphemeCursor really only wants to know
+    // whether we have access to the full string or not...
+    let mut cursor = GraphemeCursor::new(output_idx, output_idx + 1, true);
+    let last_grapheme_idx = cursor.prev_boundary(output, 0)
+        .expect("No error condition of GraphemeCursor seems reachable here")
+        .unwrap_or(0);
+    let discarded_output_chars = output[..last_grapheme_idx].chars().count();
+    output = &output[..last_grapheme_idx];
+
+    // Abort if we only converted a single grapheme cluster (=> no progress!)
+    if output.is_empty() {
+        return Err(StrDecodeError::BufferTooSmall);
+    }
+
+    // Extract the remaining input, including the characters that we just
+    // discarded from the output. Beware that an input CR/LF sequence only maps
+    // to a single 
+    // FIXME: Figure out how to do this when we have carried out lossy CRLF -> LF transforms!
+    // IDEA: Backtrach on the input_iter?
+    //       Can use # of output chars, but only after fixing CR/LFs
+    unimplemented!()
 }
