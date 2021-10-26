@@ -11,6 +11,12 @@ uefi-services = { path = "../uefi-services" }
 
 log = { version = "0.4.11", default-features = false }
 
+ring = {git = "http://github.com/jyao1/ring.git", rev = "c3598c9d04030b5dd3f6367f94c70d55ee90d8d6", features = ["alloc"]}
+
+# for ring no std test
+linkme = { git = "https://github.com/xiaoyuxlu/linkme.git", rev="04b0607f3e5ed492974822cef923e8ac7b06e877" }
+test_proc_macro = { path = "./test_proc_macro" }
+
 # When building using Cargo's `build-std` feature, the `mem` feature of `compiler-builtins`
 # does not automatically get enabled. Therefore, we have to manually add support for
 # the memory functions.

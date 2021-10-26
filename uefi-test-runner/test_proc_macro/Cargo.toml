@@ -1,0 +1,13 @@
+[package]
+name = "test_proc_macro"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.24"
+quote = "1.0.7"
+syn = { version = "1.0.42", features = ["parsing"] }
+linkme = { git = "https://github.com/xiaoyuxlu/linkme.git", rev="04b0607f3e5ed492974822cef923e8ac7b06e877" }

@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(asm)]
 #![feature(abi_efiapi)]
+#![feature(prelude_import)]
 
 #[macro_use]
 extern crate log;
@@ -19,6 +20,24 @@ use uefi::table::boot::MemoryDescriptor;
 mod boot;
 mod proto;
 
+
+mod prelude;
+#[prelude_import]
+#[allow(unused_imports)]
+#[allow(unused_attributes)]
+#[macro_use]
+use prelude::*;
+mod unit_test;
+
+// Provide missing symbols
+mod support_no_std;
+
+// Ring tests
+mod ring_tests;
+mod test{
+    pub use ring::test::*;
+}
+
 #[entry]
 fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
     // Initialize utilities (logging, memory allocation...)
@@ -31,6 +50,9 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
 
     // Ensure the tests are run on a version of UEFI we support.
     check_revision(st.uefi_revision());
+
+    // test ring
+    unit_test::run_unit_tests();
 
     // Test all the boot services.
     let bt = st.boot_services();
