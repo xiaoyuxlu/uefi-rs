@@ -37,3 +37,10 @@ Available options:
 - `--verbose`: enables verbose mode, prints commands before running them
 - `--headless`: enables headless mode, which runs QEMU without a GUI
 - `--release`: builds the code with optimizations enabled
+
+
+## Build and run ring's tests.
+
+```sh
+CC_x86_64_unknown_uefi=clang-12 AR_x86_64_unknown_uefi=llvm-ar-12 NASM_EXECUTABLE=nasm ./build.py run
+```

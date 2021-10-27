@@ -52,7 +52,7 @@ fn efi_main(image: Handle, st: SystemTable<Boot>) -> Status {
     check_revision(st.uefi_revision());
 
     // test ring
-    unit_test::run_unit_tests();
+    let _ = unit_test::run_unit_tests();
 
     // Test all the boot services.
     let bt = st.boot_services();
