@@ -208,6 +208,8 @@ def run_qemu():
 
             # Allocate some memory.
             '-m', '256M',
+            # Host cpu need support rdrand
+            '-cpu', 'host'
         ])
         if not SETTINGS['ci']:
             # Enable acceleration if possible.
